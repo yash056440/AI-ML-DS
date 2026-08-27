@@ -33,3 +33,10 @@ print("prediction about purchase of new shopper", prediction)
 
 probability = model.predict_proba(new_shopper)
 print("probability of purchase = ", probability)
+
+# probability in percentage
+prob_abandon_pct = probability[0][0] * 100
+prob_purchase_pct = probability[0][1] * 100
+
+print(f"probability of abandoning cart = {prob_abandon_pct:.2f}%")
+print(f"probability of completing purchase = {prob_purchase_pct:.2f}%")
