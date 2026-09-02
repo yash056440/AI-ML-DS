@@ -1,0 +1,1333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ledger — database chatbot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1A1815;
+    --panel:#221F1B;
+    --panel-2:#2A2620;
+    --panel-3:#312C24;
+    --border:#3A352C;
+    --border-soft:#2E2A23;
+    --text:#F0ECE4;
+    --text-secondary:#A79E8E;
+    --text-muted:#6E6658;
+    --gold:#C9A24B;
+    --gold-dim:#8A733A;
+    --steel:#7FA3BE;
+    --success:#6FA987;
+    --danger:#C1665A;
+    --font-sans:'IBM Plex Sans', -apple-system, sans-serif;
+    --font-mono:'IBM Plex Mono', 'SFMono-Regular', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font-sans);
+    font-size:14.5px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  #app{
+    display:flex;
+    height:100vh;
+    overflow:hidden;
+  }
+
+  /* ---------- Sidebar ---------- */
+  #sidebar{
+    width:308px;
+    flex-shrink:0;
+    background:var(--panel);
+    border-right:1px solid var(--border-soft);
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  .sidebar-head{
+    padding:20px 18px 14px;
+    border-bottom:1px solid var(--border-soft);
+  }
+  .brand{
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+  }
+  .brand-mark{
+    width:9px;height:9px;border-radius:1px;
+    background:var(--gold);
+    display:inline-block;
+    transform:rotate(45deg);
+    flex-shrink:0;
+  }
+  .brand-name{
+    font-weight:600;
+    font-size:16.5px;
+    letter-spacing:0.01em;
+  }
+  .brand-sub{
+    margin-top:4px;
+    font-size:12px;
+    color:var(--text-muted);
+    font-family:var(--font-mono);
+  }
+  .sidebar-body{
+    flex:1;
+    overflow-y:auto;
+    padding:14px 12px 10px;
+  }
+  .sidebar-section-label{
+    font-size:11px;
+    color:var(--text-muted);
+    padding:4px 8px 8px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .table-item{
+    border:1px solid var(--border-soft);
+    border-radius:6px;
+    margin-bottom:8px;
+    overflow:hidden;
+    background:var(--panel-2);
+  }
+  .table-item-head{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:10px 11px;
+    cursor:pointer;
+    user-select:none;
+  }
+  .table-item-head:hover{ background:var(--panel-3); }
+  .table-item-name{
+    font-family:var(--font-mono);
+    font-weight:500;
+    font-size:13px;
+    flex:1;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .table-item-meta{
+    font-size:11px;
+    color:var(--text-muted);
+    flex-shrink:0;
+  }
+  .caret{
+    color:var(--text-muted);
+    font-size:10px;
+    transition:transform .15s ease;
+    flex-shrink:0;
+  }
+  .caret.open{ transform:rotate(90deg); }
+  .table-item-body{
+    padding:2px 11px 12px;
+    border-top:1px solid var(--border-soft);
+  }
+  .col-row{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    padding:6px 0;
+    border-bottom:1px dashed var(--border-soft);
+    font-size:12.5px;
+  }
+  .col-row:last-of-type{ border-bottom:none; }
+  .col-dot{
+    width:6px;height:6px;border-radius:50%;
+    flex-shrink:0;
+    background:var(--steel);
+  }
+  .col-dot.sensitive{ background:var(--danger); }
+  .col-name{ font-family:var(--font-mono); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .col-type{ color:var(--text-muted); font-family:var(--font-mono); font-size:11px; }
+  .table-actions{
+    display:flex; gap:8px; margin-top:10px;
+  }
+  .link-btn{
+    background:none;border:none;color:var(--steel);
+    font-size:12px; cursor:pointer; padding:0; font-family:var(--font-sans);
+  }
+  .link-btn:hover{ text-decoration:underline; }
+  .link-btn.danger{ color:var(--danger); }
+
+  .new-table-btn{
+    width:100%;
+    padding:9px 10px;
+    border-radius:6px;
+    border:1px dashed var(--border);
+    background:transparent;
+    color:var(--text-secondary);
+    font-size:12.5px;
+    cursor:pointer;
+    margin-top:2px;
+  }
+  .new-table-btn:hover{ border-color:var(--gold-dim); color:var(--text); }
+
+  .sidebar-foot{
+    padding:12px 16px;
+    border-top:1px solid var(--border-soft);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .storage-note{
+    font-size:10.5px;
+    color:var(--text-muted);
+  }
+
+  /* ---------- Table edit form ---------- */
+  .form-panel{
+    background:var(--panel-2);
+    border:1px solid var(--border-soft);
+    border-radius:6px;
+    padding:12px;
+    margin-bottom:10px;
+  }
+  .form-label{
+    font-size:11px;
+    color:var(--text-muted);
+    margin-bottom:5px;
+    display:block;
+  }
+  .form-input, .form-textarea, .form-select{
+    width:100%;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:5px;
+    color:var(--text);
+    padding:7px 8px;
+    font-family:var(--font-mono);
+    font-size:12.5px;
+    margin-bottom:10px;
+  }
+  .form-textarea{ resize:vertical; min-height:76px; font-size:12px; }
+  .form-input:focus, .form-textarea:focus, .form-select:focus{
+    outline:none; border-color:var(--gold-dim);
+  }
+  .form-row{ display:flex; gap:8px; }
+  .form-row .form-input, .form-row .form-select{ margin-bottom:8px; }
+  .btn{
+    background:var(--gold);
+    color:#25200F;
+    border:none;
+    border-radius:5px;
+    padding:7px 13px;
+    font-size:12.5px;
+    font-weight:600;
+    cursor:pointer;
+    font-family:var(--font-sans);
+  }
+  .btn:hover{ background:#D8B15C; }
+  .btn:disabled{ opacity:.5; cursor:default; }
+  .btn-ghost{
+    background:transparent;
+    border:1px solid var(--border);
+    color:var(--text-secondary);
+  }
+  .btn-ghost:hover{ border-color:var(--text-muted); color:var(--text); }
+  .infer-col-row{
+    display:flex; align-items:center; gap:6px;
+    padding:5px 0;
+    font-size:12px;
+  }
+  .infer-col-row input[type="text"]{
+    background:var(--panel); border:1px solid var(--border); border-radius:4px;
+    color:var(--text); padding:4px 6px; font-family:var(--font-mono); font-size:11.5px;
+    width:100%;
+  }
+  .infer-col-row select{
+    background:var(--panel); border:1px solid var(--border); border-radius:4px;
+    color:var(--text-secondary); padding:4px 4px; font-size:11px; font-family:var(--font-mono);
+  }
+  .sens-toggle{
+    display:flex; align-items:center; gap:4px;
+    font-size:10.5px; color:var(--text-muted); cursor:pointer;
+    white-space:nowrap;
+  }
+  .sens-toggle input{ accent-color:var(--danger); }
+  .form-error{
+    color:var(--danger);
+    font-size:11.5px;
+    margin:-4px 0 8px;
+  }
+  .form-hint{
+    color:var(--text-muted);
+    font-size:11px;
+    margin:-5px 0 10px;
+  }
+
+  /* ---------- Main / chat ---------- */
+  #main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+  }
+  #topbar{
+    padding:16px 26px;
+    border-bottom:1px solid var(--border-soft);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-shrink:0;
+  }
+  #menu-toggle{
+    display:none;
+    background:none;border:none;color:var(--text-secondary);
+    font-size:18px; cursor:pointer; margin-right:12px;
+  }
+  .topbar-title{ font-weight:600; font-size:15px; }
+  .topbar-status{
+    font-family:var(--font-mono);
+    font-size:11.5px;
+    color:var(--text-muted);
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .status-dot{
+    width:6px;height:6px;border-radius:50%;
+    background:var(--success);
+    box-shadow:0 0 0 3px rgba(111,169,135,0.12);
+  }
+
+  #chat-scroll{
+    flex:1;
+    overflow-y:auto;
+    padding:26px 0 10px;
+  }
+  #chat-inner{
+    max-width:720px;
+    margin:0 auto;
+    padding:0 26px;
+  }
+  .empty-state{
+    max-width:520px;
+    margin:8vh auto;
+    text-align:center;
+    padding:0 20px;
+  }
+  .empty-state .brand-mark{ margin:0 auto 18px; display:block; }
+  .empty-state h2{
+    font-weight:600;
+    font-size:19px;
+    margin:0 0 10px;
+  }
+  .empty-state p{
+    color:var(--text-secondary);
+    font-size:13.5px;
+    line-height:1.6;
+    margin:0 0 22px;
+  }
+
+  .msg{
+    display:flex;
+    margin-bottom:20px;
+  }
+  .msg.user{ justify-content:flex-end; }
+  .bubble{
+    max-width:78%;
+    padding:10px 14px;
+    border-radius:9px;
+    font-size:14px;
+    line-height:1.55;
+    white-space:pre-wrap;
+  }
+  .msg.user .bubble{
+    background:var(--panel-3);
+    border:1px solid var(--border-soft);
+    border-bottom-right-radius:3px;
+  }
+  .msg.assistant .bubble-wrap{ max-width:88%; }
+  .msg.assistant .bubble{
+    background:transparent;
+    border:none;
+    padding:2px 0 0;
+  }
+  .msg.assistant .bubble.blocked{
+    color:var(--text);
+  }
+
+  .pipeline{
+    display:flex;
+    align-items:center;
+    gap:3px;
+    margin-top:9px;
+    font-family:var(--font-mono);
+    font-size:10.5px;
+    color:var(--text-muted);
+    flex-wrap:wrap;
+  }
+  .pipe-step{
+    display:flex; align-items:center; gap:4px;
+    padding:2px 7px 2px 6px;
+    border:1px solid var(--border-soft);
+    border-radius:20px;
+    background:var(--panel);
+  }
+  .pipe-step .mark{ font-size:10px; }
+  .pipe-step.ok .mark{ color:var(--success); }
+  .pipe-step.bad .mark{ color:var(--danger); }
+  .pipe-step.pending .mark{ color:var(--text-muted); }
+  .pipe-sep{ color:var(--border); font-size:10px; }
+
+  details.sql-detail{
+    margin-top:8px;
+  }
+  details.sql-detail summary{
+    cursor:pointer;
+    font-size:11px;
+    color:var(--steel);
+    font-family:var(--font-mono);
+    list-style:none;
+  }
+  details.sql-detail summary::-webkit-details-marker{ display:none; }
+  details.sql-detail summary:before{ content:'▸ '; }
+  details.sql-detail[open] summary:before{ content:'▾ '; }
+  .sql-box{
+    margin-top:7px;
+    background:var(--panel-2);
+    border:1px solid var(--border-soft);
+    border-radius:6px;
+    padding:10px 12px;
+    font-family:var(--font-mono);
+    font-size:11.5px;
+    color:var(--text-secondary);
+    overflow-x:auto;
+    white-space:pre;
+  }
+  .result-table{
+    margin-top:8px;
+    border-collapse:collapse;
+    font-family:var(--font-mono);
+    font-size:11.5px;
+    width:100%;
+  }
+  .result-table th, .result-table td{
+    border:1px solid var(--border-soft);
+    padding:4px 8px;
+    text-align:left;
+    white-space:nowrap;
+  }
+  .result-table th{
+    color:var(--text-muted);
+    font-weight:500;
+    background:var(--panel-2);
+  }
+  .thinking{
+    font-family:var(--font-mono);
+    font-size:12px;
+    color:var(--text-muted);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .dot-flash{
+    width:5px;height:5px;border-radius:50%;
+    background:var(--gold-dim);
+    animation:flash 1.1s infinite ease-in-out;
+  }
+  @keyframes flash{ 0%,100%{opacity:.25;} 50%{opacity:1;} }
+
+  #composer{
+    border-top:1px solid var(--border-soft);
+    padding:16px 26px 20px;
+    flex-shrink:0;
+  }
+  #composer-inner{
+    max-width:720px;
+    margin:0 auto;
+    display:flex;
+    gap:10px;
+    align-items:flex-end;
+  }
+  #chat-input{
+    flex:1;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:9px;
+    color:var(--text);
+    padding:11px 13px;
+    font-family:var(--font-sans);
+    font-size:14px;
+    resize:none;
+    max-height:140px;
+  }
+  #chat-input:focus{ outline:none; border-color:var(--gold-dim); }
+  #send-btn{
+    height:40px; width:40px; flex-shrink:0;
+    border-radius:9px;
+    background:var(--gold);
+    border:none;
+    color:#25200F;
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  #send-btn:disabled{ opacity:.4; cursor:default; }
+  #composer-note{
+    max-width:720px;
+    margin:9px auto 0;
+    font-size:11px;
+    color:var(--text-muted);
+    text-align:center;
+  }
+
+  .banner{
+    max-width:720px;
+    margin:0 auto 14px;
+    padding:9px 13px;
+    border:1px solid var(--border);
+    border-radius:7px;
+    font-size:12px;
+    color:var(--text-secondary);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+  }
+  .banner button{
+    background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:15px;line-height:1;
+  }
+
+  #sidebar-backdrop{
+    display:none;
+  }
+
+  @media (max-width: 760px){
+    #sidebar{
+      position:fixed; z-index:20; top:0; left:0; bottom:0;
+      transform:translateX(-100%);
+      transition:transform .2s ease;
+      width:82vw; max-width:320px;
+    }
+    #sidebar.open{ transform:translateX(0); }
+    #sidebar-backdrop.open{
+      display:block;
+      position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:19;
+    }
+    #menu-toggle{ display:inline-block; }
+    #chat-inner, #composer-inner, #composer-note{ padding-left:16px; padding-right:16px; max-width:100%; }
+    #topbar{ padding:14px 16px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="sidebar-backdrop"></div>
+  <aside id="sidebar">
+    <div class="sidebar-head">
+      <div class="brand"><span class="brand-mark"></span><span class="brand-name">Ledger</span></div>
+      <div class="brand-sub">read-only query assistant</div>
+    </div>
+    <div class="sidebar-body" id="sidebar-body"></div>
+    <div class="sidebar-foot">
+      <span class="storage-note" id="storage-note">saved locally</span>
+      <button class="link-btn danger" id="reset-btn">reset all</button>
+    </div>
+  </aside>
+
+  <main id="main">
+    <div id="topbar">
+      <div style="display:flex;align-items:center;">
+        <button id="menu-toggle" aria-label="Toggle tables">☰</button>
+        <div class="topbar-title">Ask your data</div>
+      </div>
+      <div class="topbar-status"><span class="status-dot"></span><span id="status-text">0 tables · SELECT only</span></div>
+    </div>
+
+    <div id="chat-scroll"><div id="chat-inner"></div></div>
+
+    <div id="composer">
+      <div id="composer-inner">
+        <textarea id="chat-input" rows="1" placeholder="Ask a question about your data…"></textarea>
+        <button id="send-btn" aria-label="Send">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 12L20 4L13 20L11 13L4 12Z" stroke="#25200F" stroke-width="2" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <div id="composer-note">Every question runs as a validated, read-only SELECT against your tables. Restricted columns are never sent to the model.</div>
+    </div>
+  </main>
+</div>
+
+<script>
+/* =======================================================================
+   Mini read-only SQL engine — SELECT-only, single table, no dependencies.
+   ======================================================================= */
+function tokenizeWhere(str){
+  const tokens=[]; let i=0; const s=str;
+  while(i<s.length){
+    const c=s[i];
+    if(/\s/.test(c)){ i++; continue; }
+    if(c==='('||c===')'){ tokens.push(c); i++; continue; }
+    if(c==="'"||c==='"'){
+      const quote=c; let j=i+1,buf='';
+      while(j<s.length && s[j]!==quote){ buf+=s[j]; j++; }
+      tokens.push({type:'string',value:buf}); i=j+1; continue;
+    }
+    const two=s.slice(i,i+2);
+    if(['>=','<=','!=','<>'].includes(two)){ tokens.push({type:'op',value:two==='<>'?'!=':two}); i+=2; continue; }
+    if('><='.includes(c)){ tokens.push({type:'op',value:c}); i++; continue; }
+    if(/[0-9]/.test(c) || (c==='-' && /[0-9]/.test(s[i+1]||''))){
+      let j=i,buf=''; if(c==='-'){buf+=c;j++;}
+      while(j<s.length && /[0-9.]/.test(s[j])){ buf+=s[j]; j++; }
+      tokens.push({type:'number',value:parseFloat(buf)}); i=j; continue;
+    }
+    if(/[A-Za-z_]/.test(c)){
+      let j=i,buf='';
+      while(j<s.length && /[A-Za-z0-9_.]/.test(s[j])){ buf+=s[j]; j++; }
+      const upper=buf.toUpperCase();
+      if(upper==='AND'||upper==='OR'||upper==='NOT') tokens.push({type:'bool',value:upper});
+      else if(upper==='LIKE') tokens.push({type:'op',value:'LIKE'});
+      else if(upper==='IS') tokens.push({type:'is'});
+      else if(upper==='NULL') tokens.push({type:'null'});
+      else tokens.push({type:'ident',value:buf});
+      i=j; continue;
+    }
+    if(c==='='){ tokens.push({type:'op',value:'='}); i++; continue; }
+    throw new Error('Unexpected character in WHERE clause: '+c);
+  }
+  return tokens;
+}
+function parseWhereTokens(tokens){
+  let pos=0;
+  function peek(){ return tokens[pos]; }
+  function next(){ return tokens[pos++]; }
+  function parseExpr(){ return parseOr(); }
+  function parseOr(){
+    let left=parseAnd();
+    while(peek() && peek().type==='bool' && peek().value==='OR'){
+      next(); const right=parseAnd(); const l=left,r=right;
+      left=(row)=>l(row)||r(row);
+    }
+    return left;
+  }
+  function parseAnd(){
+    let left=parseNot();
+    while(peek() && peek().type==='bool' && peek().value==='AND'){
+      next(); const right=parseNot(); const l=left,r=right;
+      left=(row)=>l(row)&&r(row);
+    }
+    return left;
+  }
+  function parseNot(){
+    if(peek() && peek().type==='bool' && peek().value==='NOT'){
+      next(); const inner=parseNot(); return (row)=>!inner(row);
+    }
+    return parseAtom();
+  }
+  function parseAtom(){
+    const t=peek();
+    if(t==='('){ next(); const inner=parseExpr(); if(peek()!==')') throw new Error('Expected closing parenthesis'); next(); return inner; }
+    return parseCondition();
+  }
+  function parseCondition(){
+    const identTok=next();
+    if(!identTok||identTok.type!=='ident') throw new Error('Expected column name in WHERE clause');
+    const col=identTok.value.includes('.')?identTok.value.split('.').pop():identTok.value;
+    if(peek() && peek().type==='is'){
+      next(); let negate=false;
+      if(peek() && peek().type==='bool' && peek().value==='NOT'){ negate=true; next(); }
+      if(!peek()||peek().type!=='null') throw new Error('Expected NULL after IS');
+      next();
+      return (row)=>{ const isNull=row[col]===null||row[col]===undefined||row[col]===''; return negate?!isNull:isNull; };
+    }
+    const opTok=next();
+    if(!opTok||opTok.type!=='op') throw new Error('Expected operator after column "'+col+'"');
+    const op=opTok.value;
+    const valTok=next();
+    if(!valTok) throw new Error('Expected value after operator');
+    let val;
+    if(valTok.type==='string') val=valTok.value;
+    else if(valTok.type==='number') val=valTok.value;
+    else throw new Error('Unsupported value in WHERE clause');
+    return (row)=>{
+      let cell=row[col];
+      if(cell===undefined) return false;
+      if(op==='LIKE'){
+        const pattern='^'+String(val).replace(/[.+^${}()|[\]\\]/g,'\\$&').replace(/%/g,'.*').replace(/_/g,'.')+'$';
+        return new RegExp(pattern,'i').test(String(cell));
+      }
+      const cellNum = typeof cell==='number'?cell:(isFinite(Number(cell)) && cell!=='' ? Number(cell): NaN);
+      const valNum = typeof val==='number'?val:NaN;
+      const bothNumeric = !isNaN(cellNum) && !isNaN(valNum) && typeof val==='number';
+      const a = bothNumeric?cellNum:String(cell).toLowerCase();
+      const b = bothNumeric?valNum:String(val).toLowerCase();
+      switch(op){
+        case '=': return a===b;
+        case '!=': return a!==b;
+        case '>': return a>b;
+        case '<': return a<b;
+        case '>=': return a>=b;
+        case '<=': return a<=b;
+        default: throw new Error('Unsupported operator: '+op);
+      }
+    };
+  }
+  const fn=parseExpr();
+  if(pos!==tokens.length) throw new Error('Unexpected trailing tokens in WHERE clause');
+  return fn;
+}
+function compileWhere(whereStr){ return parseWhereTokens(tokenizeWhere(whereStr)); }
+const AGG_FN=/^(COUNT|SUM|AVG|MIN|MAX)\s*\(\s*(\*|[A-Za-z_][A-Za-z0-9_.]*)\s*\)$/i;
+function parseSelectList(str){
+  const parts=[]; let depth=0,buf='';
+  for(const ch of str){
+    if(ch==='(') depth++;
+    if(ch===')') depth--;
+    if(ch===',' && depth===0){ parts.push(buf.trim()); buf=''; }
+    else buf+=ch;
+  }
+  if(buf.trim()) parts.push(buf.trim());
+  return parts.map((p)=>{
+    let expr=p, alias=null;
+    const asMatch=p.match(/^(.*?)\s+AS\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
+    if(asMatch){ expr=asMatch[1].trim(); alias=asMatch[2]; }
+    if(expr==='*') return {type:'star'};
+    const aggMatch=expr.match(AGG_FN);
+    if(aggMatch){
+      const fn=aggMatch[1].toUpperCase(); const col=aggMatch[2];
+      return {type:'agg', fn, col, alias: alias || (fn+'_'+(col==='*'?'all':col))};
+    }
+    const col = expr.includes('.')?expr.split('.').pop():expr;
+    return {type:'col', col, alias: alias||col};
+  });
+}
+function parseSQL(sql){
+  let s=sql.trim().replace(/;+\s*$/,'');
+  const upper=s.toUpperCase();
+  if(!upper.startsWith('SELECT')) throw new Error('Only SELECT statements are supported');
+  let limit=null;
+  const limitMatch=s.match(/\bLIMIT\s+(\d+)\s*$/i);
+  if(limitMatch){ limit=parseInt(limitMatch[1],10); s=s.slice(0,limitMatch.index); }
+  let orderBy=[];
+  const orderMatch=s.match(/\bORDER\s+BY\s+(.+)$/i);
+  if(orderMatch){
+    orderBy=orderMatch[1].split(',').map((p)=>{
+      const m=p.trim().match(/^([A-Za-z0-9_.]+)\s*(ASC|DESC)?$/i);
+      const col=m[1].includes('.')?m[1].split('.').pop():m[1];
+      return {col, dir:(m[2]||'ASC').toUpperCase()};
+    });
+    s=s.slice(0,orderMatch.index);
+  }
+  let groupBy=[];
+  const groupMatch=s.match(/\bGROUP\s+BY\s+(.+)$/i);
+  if(groupMatch){
+    groupBy=groupMatch[1].split(',').map((c)=>{ const t=c.trim(); return t.includes('.')?t.split('.').pop():t; });
+    s=s.slice(0,groupMatch.index);
+  }
+  let whereStr=null;
+  const whereMatch=s.match(/\bWHERE\s+(.+)$/i);
+  if(whereMatch){ whereStr=whereMatch[1]; s=s.slice(0,whereMatch.index); }
+  const fromMatch=s.match(/\bFROM\s+([A-Za-z_][A-Za-z0-9_]*)/i);
+  if(!fromMatch) throw new Error('Missing FROM clause');
+  const table=fromMatch[1];
+  const selectStr=s.slice(upper.indexOf('SELECT')+6, fromMatch.index).trim();
+  const selectList=parseSelectList(selectStr);
+  const whereFn = whereStr ? compileWhere(whereStr) : null;
+  return {table, selectList, whereFn, groupBy, orderBy, limit};
+}
+function runQuery(sql, tables){
+  const parsed=parseSQL(sql);
+  const rows=tables[parsed.table];
+  if(!rows) throw new Error('Unknown table: '+parsed.table);
+  let data = parsed.whereFn ? rows.filter(parsed.whereFn) : rows.slice();
+  let outRows;
+  const hasAgg = parsed.selectList.some(c=>c.type==='agg');
+  if(parsed.groupBy.length || hasAgg){
+    const groups=new Map();
+    const keyOf=(row)=>parsed.groupBy.map(c=>row[c]).join('\u0001');
+    for(const row of data){
+      const k = parsed.groupBy.length ? keyOf(row) : '__all__';
+      if(!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(row);
+    }
+    outRows=[];
+    for(const [,groupRows] of groups){
+      const outRow={};
+      for(const sel of parsed.selectList){
+        if(sel.type==='col') outRow[sel.alias]=groupRows[0][sel.col];
+        else if(sel.type==='agg'){
+          const vals = sel.col==='*' ? groupRows : groupRows.map(r=>Number(r[sel.col])).filter(v=>!isNaN(v));
+          switch(sel.fn){
+            case 'COUNT': outRow[sel.alias] = sel.col==='*'?groupRows.length:vals.length; break;
+            case 'SUM': outRow[sel.alias] = vals.reduce((a,b)=>a+b,0); break;
+            case 'AVG': outRow[sel.alias] = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0; break;
+            case 'MIN': outRow[sel.alias] = vals.length ? Math.min(...vals) : null; break;
+            case 'MAX': outRow[sel.alias] = vals.length ? Math.max(...vals) : null; break;
+          }
+        } else if(sel.type==='star'){ Object.assign(outRow, groupRows[0]); }
+      }
+      outRows.push(outRow);
+    }
+  } else {
+    outRows = data.map((row)=>{
+      if(parsed.selectList.length===1 && parsed.selectList[0].type==='star') return {...row};
+      const outRow={};
+      for(const sel of parsed.selectList){
+        if(sel.type==='star') Object.assign(outRow,row);
+        else if(sel.type==='col') outRow[sel.alias]=row[sel.col];
+      }
+      return outRow;
+    });
+  }
+  if(parsed.orderBy.length){
+    outRows.sort((a,b)=>{
+      for(const ord of parsed.orderBy){
+        const av=a[ord.col], bv=b[ord.col];
+        let cmp;
+        if(typeof av==='number' && typeof bv==='number') cmp=av-bv;
+        else cmp=String(av).localeCompare(String(bv));
+        if(cmp!==0) return ord.dir==='DESC'?-cmp:cmp;
+      }
+      return 0;
+    });
+  }
+  const totalCount=outRows.length;
+  if(parsed.limit!=null) outRows=outRows.slice(0,parsed.limit);
+  return {rows:outRows, totalCount, table:parsed.table};
+}
+
+/* =======================================================================
+   Validator
+   ======================================================================= */
+const BLOCKED_KEYWORDS=['INSERT','UPDATE','DELETE','DROP','ALTER','TRUNCATE','GRANT','REVOKE','CREATE','REPLACE','ATTACH','DETACH','PRAGMA','EXEC','EXECUTE','CALL','MERGE','INTO','OUTFILE','INFILE'];
+function validateSQL(sql, tables){
+  const trimmed=(sql||'').trim();
+  if(!trimmed) return {ok:false, reason:'The model did not return a query.'};
+  if(!/^SELECT\b/i.test(trimmed)) return {ok:false, reason:'Only SELECT queries are permitted.'};
+  const statements=trimmed.replace(/;+\s*$/,'').split(';').map(s=>s.trim()).filter(Boolean);
+  if(statements.length>1) return {ok:false, reason:'Multiple statements are not permitted.'};
+  const upper=trimmed.toUpperCase();
+  for(const kw of BLOCKED_KEYWORDS){
+    const re=new RegExp('\\b'+kw+'\\b');
+    if(re.test(upper)) return {ok:false, reason:'Query contains a disallowed keyword: '+kw+'.'};
+  }
+  let parsed;
+  try{ parsed=parseSQL(trimmed); } catch(e){ return {ok:false, reason:'Could not parse the generated query — '+e.message+'.'}; }
+  const table=tables.find(t=>t.name.toLowerCase()===parsed.table.toLowerCase());
+  if(!table) return {ok:false, reason:'Unknown table referenced: "'+parsed.table+'".'};
+  const sensitiveNames=new Set(table.columns.filter(c=>c.sensitive).map(c=>c.name.toLowerCase()));
+  for(const sel of parsed.selectList){
+    if(sel.type==='col' && sensitiveNames.has(sel.col.toLowerCase())) return {ok:false, reason:'Column "'+sel.col+'" is restricted.'};
+    if(sel.type==='agg' && sel.col!=='*' && sensitiveNames.has(sel.col.toLowerCase())) return {ok:false, reason:'Column "'+sel.col+'" is restricted.'};
+  }
+  for(const name of sensitiveNames){
+    const re=new RegExp('\\b'+name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','i');
+    if(re.test(trimmed)) return {ok:false, reason:'Query references restricted column "'+name+'".'};
+  }
+  const knownCols=new Set(table.columns.map(c=>c.name.toLowerCase()));
+  for(const sel of parsed.selectList){
+    if(sel.type==='col' && !knownCols.has(sel.col.toLowerCase())) return {ok:false, reason:'Unknown column "'+sel.col+'" for table "'+table.name+'".'};
+  }
+  let finalSql=trimmed.replace(/;+\s*$/,'');
+  if(parsed.limit==null) finalSql+=' LIMIT 200';
+  else if(parsed.limit>500) finalSql=finalSql.replace(/LIMIT\s+\d+/i,'LIMIT 500');
+  return {ok:true, sql:finalSql, parsed, table};
+}
+
+/* =======================================================================
+   State + persistence
+   ======================================================================= */
+let state = { tables: [] };
+let messages = [];
+let openTableId = null;
+let storageOk = true;
+
+function uid(){ return Math.random().toString(36).slice(2,10); }
+
+async function loadState(){
+  try{
+    const t = await window.storage.get('ledger-tables', false);
+    state.tables = t && t.value ? JSON.parse(t.value) : [];
+  }catch(e){ state.tables = []; }
+  try{
+    const m = await window.storage.get('ledger-messages', false);
+    messages = m && m.value ? JSON.parse(m.value) : [];
+  }catch(e){ messages = []; }
+}
+async function saveTables(){
+  try{
+    const r = await window.storage.set('ledger-tables', JSON.stringify(state.tables), false);
+    storageOk = !!r;
+  }catch(e){ storageOk = false; }
+  renderStorageNote();
+}
+async function saveMessages(){
+  try{ await window.storage.set('ledger-messages', JSON.stringify(messages), false); }
+  catch(e){ /* non-fatal */ }
+}
+function renderStorageNote(){
+  document.getElementById('storage-note').textContent = storageOk ? 'saved locally' : 'not saved — storage unavailable';
+}
+
+/* =======================================================================
+   Column inference from pasted JSON
+   ======================================================================= */
+const SENSITIVE_HINTS=['email','phone','telephone','password','pass','token','secret','address','ssn','card','credit','api_key','apikey','auth','pin'];
+function inferColumns(rows){
+  if(!rows.length) return [];
+  const keys=Object.keys(rows[0]);
+  return keys.map(k=>{
+    const sampleVals=rows.slice(0,10).map(r=>r[k]).filter(v=>v!==null && v!==undefined);
+    let type='text';
+    if(sampleVals.length && sampleVals.every(v=>typeof v==='number')) type='number';
+    else if(sampleVals.length && sampleVals.every(v=>typeof v==='boolean')) type='boolean';
+    else if(sampleVals.length && sampleVals.every(v=>typeof v==='string' && /^\d{4}-\d{2}-\d{2}/.test(v))) type='date';
+    const lower=k.toLowerCase();
+    const sensitive=SENSITIVE_HINTS.some(h=>lower.includes(h));
+    return {name:k, type, sensitive};
+  });
+}
+
+/* =======================================================================
+   Sidebar rendering
+   ======================================================================= */
+function renderSidebar(){
+  const body=document.getElementById('sidebar-body');
+  let html = '<div class="sidebar-section-label"><span>Tables (' + state.tables.length + ')</span></div>';
+
+  state.tables.forEach(t=>{
+    const isOpen = openTableId===t.id;
+    html += '<div class="table-item">';
+    html += '<div class="table-item-head" data-action="toggle-table" data-id="'+t.id+'">';
+    html += '<span class="caret'+(isOpen?' open':'')+'">▸</span>';
+    html += '<span class="table-item-name">'+escapeHtml(t.name)+'</span>';
+    html += '<span class="table-item-meta">'+t.rows.length+' rows</span>';
+    html += '</div>';
+    if(isOpen){
+      html += '<div class="table-item-body">';
+      t.columns.forEach((c,idx)=>{
+        html += '<div class="col-row">';
+        html += '<span class="col-dot'+(c.sensitive?' sensitive':'')+'"></span>';
+        html += '<span class="col-name">'+escapeHtml(c.name)+'</span>';
+        html += '<span class="col-type">'+c.type+'</span>';
+        html += '<label class="sens-toggle"><input type="checkbox" data-action="toggle-sensitive" data-table="'+t.id+'" data-col="'+idx+'" '+(c.sensitive?'checked':'')+'/>restricted</label>';
+        html += '</div>';
+      });
+      html += '<div class="table-actions">';
+      html += '<button class="link-btn" data-action="replace-data" data-id="'+t.id+'">replace data</button>';
+      html += '<button class="link-btn danger" data-action="delete-table" data-id="'+t.id+'">delete</button>';
+      html += '</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+  });
+
+  if(openTableId==='new'){
+    html += renderNewTableForm();
+  } else {
+    html += '<button class="new-table-btn" data-action="new-table">+ add a table</button>';
+    if(state.tables.length===0){
+      html += '<button class="new-table-btn" data-action="load-sample" style="margin-top:8px;">try a sample schema</button>';
+    }
+  }
+
+  body.innerHTML = html;
+  attachSidebarHandlers();
+  document.getElementById('status-text').textContent = state.tables.length + (state.tables.length===1 ? ' table' : ' tables') + ' · SELECT only';
+}
+
+let newTableDraft = { name:'', rawData:'', columns:null, rows:null, error:null };
+function renderNewTableForm(){
+  let html = '<div class="form-panel">';
+  html += '<label class="form-label">Table name</label>';
+  html += '<input class="form-input" id="nt-name" placeholder="e.g. sales_order" value="'+escapeHtml(newTableDraft.name)+'"/>';
+  html += '<label class="form-label">Paste data — a JSON array of row objects</label>';
+  html += '<textarea class="form-textarea" id="nt-data" placeholder=\'[{"entity_id": 1, "status": "complete", "grand_total": 1200}]\'>'+escapeHtml(newTableDraft.rawData)+'</textarea>';
+  if(newTableDraft.error){ html += '<div class="form-error">'+escapeHtml(newTableDraft.error)+'</div>'; }
+  if(newTableDraft.columns){
+    html += '<div class="form-hint">'+newTableDraft.rows.length+' row(s) found. Mark any columns that should never be queryable:</div>';
+    newTableDraft.columns.forEach((c,idx)=>{
+      html += '<div class="infer-col-row">';
+      html += '<input type="text" data-idx="'+idx+'" data-field="name" value="'+escapeHtml(c.name)+'"/>';
+      html += '<select data-idx="'+idx+'" data-field="type">';
+      ['text','number','date','boolean'].forEach(ty=>{
+        html += '<option value="'+ty+'" '+(c.type===ty?'selected':'')+'>'+ty+'</option>';
+      });
+      html += '</select>';
+      html += '<label class="sens-toggle"><input type="checkbox" data-idx="'+idx+'" data-field="sensitive" '+(c.sensitive?'checked':'')+'/>restricted</label>';
+      html += '</div>';
+    });
+  }
+  html += '<div class="table-actions" style="margin-top:12px;">';
+  if(!newTableDraft.columns){
+    html += '<button class="btn" data-action="analyze-data">Analyze data</button>';
+  } else {
+    html += '<button class="btn" data-action="save-new-table">Save table</button>';
+  }
+  html += '<button class="btn-ghost btn" data-action="cancel-new-table">Cancel</button>';
+  html += '</div>';
+  html += '</div>';
+  return html;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function attachSidebarHandlers(){
+  const body=document.getElementById('sidebar-body');
+  body.querySelectorAll('[data-action="toggle-table"]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const id=el.getAttribute('data-id');
+      openTableId = openTableId===id ? null : id;
+      renderSidebar();
+    });
+  });
+  body.querySelectorAll('[data-action="toggle-sensitive"]').forEach(el=>{
+    el.addEventListener('change', ()=>{
+      const tid=el.getAttribute('data-table');
+      const cidx=parseInt(el.getAttribute('data-col'),10);
+      const table=state.tables.find(t=>t.id===tid);
+      if(table){ table.columns[cidx].sensitive = el.checked; saveTables(); renderSidebar(); }
+    });
+  });
+  body.querySelectorAll('[data-action="delete-table"]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const id=el.getAttribute('data-id');
+      const table=state.tables.find(t=>t.id===id);
+      if(table && confirm('Delete table "'+table.name+'"? This cannot be undone.')){
+        state.tables = state.tables.filter(t=>t.id!==id);
+        if(openTableId===id) openTableId=null;
+        saveTables(); renderSidebar();
+      }
+    });
+  });
+  body.querySelectorAll('[data-action="replace-data"]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const id=el.getAttribute('data-id');
+      const table=state.tables.find(t=>t.id===id);
+      if(!table) return;
+      const raw=prompt('Paste a JSON array of row objects to replace the data in "'+table.name+'":');
+      if(raw==null) return;
+      try{
+        const rows=JSON.parse(raw);
+        if(!Array.isArray(rows)) throw new Error('Expected a JSON array');
+        table.rows=rows;
+        saveTables(); renderSidebar();
+      }catch(e){ alert('Could not parse that as JSON: '+e.message); }
+    });
+  });
+  const newBtn=body.querySelector('[data-action="new-table"]');
+  if(newBtn) newBtn.addEventListener('click', ()=>{
+    newTableDraft={name:'', rawData:'', columns:null, rows:null, error:null};
+    openTableId='new'; renderSidebar();
+    setTimeout(()=>document.getElementById('nt-name')?.focus(),0);
+  });
+  const sampleBtn=body.querySelector('[data-action="load-sample"]');
+  if(sampleBtn) sampleBtn.addEventListener('click', loadSampleSchema);
+
+  const nameInput=body.querySelector('#nt-name');
+  if(nameInput) nameInput.addEventListener('input', e=>{ newTableDraft.name=e.target.value; });
+  const dataInput=body.querySelector('#nt-data');
+  if(dataInput) dataInput.addEventListener('input', e=>{ newTableDraft.rawData=e.target.value; });
+
+  const analyzeBtn=body.querySelector('[data-action="analyze-data"]');
+  if(analyzeBtn) analyzeBtn.addEventListener('click', ()=>{
+    try{
+      const rows=JSON.parse(newTableDraft.rawData);
+      if(!Array.isArray(rows) || rows.length===0 || typeof rows[0]!=='object') throw new Error('Paste a non-empty JSON array of row objects');
+      newTableDraft.rows=rows;
+      newTableDraft.columns=inferColumns(rows);
+      newTableDraft.error=null;
+    }catch(e){ newTableDraft.error='Could not read that data — '+e.message; }
+    renderSidebar();
+  });
+
+  body.querySelectorAll('.infer-col-row input[data-field="name"]').forEach(el=>{
+    el.addEventListener('input', e=>{ newTableDraft.columns[parseInt(e.target.getAttribute('data-idx'),10)].name=e.target.value; });
+  });
+  body.querySelectorAll('.infer-col-row select[data-field="type"]').forEach(el=>{
+    el.addEventListener('change', e=>{ newTableDraft.columns[parseInt(e.target.getAttribute('data-idx'),10)].type=e.target.value; });
+  });
+  body.querySelectorAll('.infer-col-row input[data-field="sensitive"]').forEach(el=>{
+    el.addEventListener('change', e=>{ newTableDraft.columns[parseInt(e.target.getAttribute('data-idx'),10)].sensitive=e.target.checked; });
+  });
+
+  const saveBtn=body.querySelector('[data-action="save-new-table"]');
+  if(saveBtn) saveBtn.addEventListener('click', ()=>{
+    if(!newTableDraft.name.trim()){ newTableDraft.error='Give the table a name first.'; renderSidebar(); return; }
+    if(!/^[A-Za-z_][A-Za-z0-9_]*$/.test(newTableDraft.name.trim())){ newTableDraft.error='Use letters, numbers and underscores only, starting with a letter.'; renderSidebar(); return; }
+    state.tables.push({ id:uid(), name:newTableDraft.name.trim(), columns:newTableDraft.columns, rows:newTableDraft.rows });
+    openTableId=null;
+    saveTables(); renderSidebar();
+  });
+  const cancelBtn=body.querySelector('[data-action="cancel-new-table"]');
+  if(cancelBtn) cancelBtn.addEventListener('click', ()=>{ openTableId=null; renderSidebar(); });
+}
+
+function loadSampleSchema(){
+  const orders=[];
+  const statuses=['complete','complete','complete','pending','canceled','complete'];
+  for(let i=1;i<=24;i++){
+    orders.push({
+      entity_id:i,
+      status: statuses[i%statuses.length],
+      grand_total: Math.round((300+Math.random()*4200))/1,
+      customer_email: 'customer'+i+'@example.com',
+      created_at: '2026-0'+(6+(i%3))+'-'+String(1+(i%27)).padStart(2,'0')
+    });
+  }
+  const products=[
+    {sku:'BL-SHRT-01', name:'Blue Shirt', qty:0, price:29.99},
+    {sku:'RD-HAT-02', name:'Red Hat', qty:15, price:14.5},
+    {sku:'GR-SHOE-03', name:'Green Shoes', qty:0, price:64.0},
+    {sku:'BLK-BAG-04', name:'Black Tote Bag', qty:42, price:39.0},
+    {sku:'WHT-SOCK-05', name:'White Socks (3-pack)', qty:8, price:9.99},
+  ];
+  state.tables = [
+    { id:uid(), name:'sales_order', columns: inferColumns(orders), rows: orders },
+    { id:uid(), name:'catalog_product_entity', columns: inferColumns(products), rows: products },
+  ];
+  openTableId=null;
+  saveTables(); renderSidebar();
+}
+
+/* =======================================================================
+   Chat
+   ======================================================================= */
+function schemaPrompt(tables){
+  return tables.map(t=>{
+    const cols=t.columns.filter(c=>!c.sensitive).map(c=>c.name+' ('+c.type+')').join(', ');
+    const restricted=t.columns.filter(c=>c.sensitive).length;
+    let line = 'Table "'+t.name+'": columns available to query: '+(cols||'(none queryable)')+'.';
+    if(restricted) line += ' '+restricted+' additional column(s) exist on this table but are restricted — never reference them.';
+    return line;
+  }).join('\n');
+}
+
+async function callClaude(system, userText){
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      model:'claude-sonnet-4-6',
+      max_tokens:1000,
+      system: system,
+      messages:[{role:'user', content:userText}]
+    })
+  });
+  const data = await resp.json();
+  const text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+  return text;
+}
+
+function stripFences(text){
+  return text.trim().replace(/^```(json)?/i,'').replace(/```$/,'').trim();
+}
+
+async function handleSend(){
+  const input=document.getElementById('chat-input');
+  const question=input.value.trim();
+  if(!question || state.tables.length===0) return;
+  input.value='';
+  autosizeInput();
+
+  messages.push({role:'user', content:question});
+  renderChat();
+  saveMessages();
+
+  const thinkingMsg = {role:'assistant', thinking:true, stage:'Writing query…'};
+  messages.push(thinkingMsg);
+  renderChat();
+
+  const tablesForPrompt = state.tables;
+  const sysPrompt = 'You are a SQL generation engine for a read-only analytics chatbot. Rules:\n'+
+    '- Only ever write a single SELECT statement. Never write INSERT, UPDATE, DELETE, DROP, ALTER, or anything that modifies data.\n'+
+    '- Only reference tables and columns listed in the schema below. Never invent a column, even a common-sounding one, if it is not listed.\n'+
+    '- Only a single table per query is supported (no JOINs), using this grammar: SELECT <columns or aggregates> FROM <table> [WHERE ...] [GROUP BY ...] [ORDER BY ...] [LIMIT ...]. Supported aggregates: COUNT, SUM, AVG, MIN, MAX.\n'+
+    '- If the question needs data that is not available (including restricted columns, or would require joining tables), do not guess a query — explain briefly in "reason" instead.\n\n'+
+    'Schema:\n'+schemaPrompt(tablesForPrompt)+'\n\n'+
+    'Respond with ONLY a JSON object, no markdown fences, no commentary, in exactly this shape:\n'+
+    '{"sql": "<SELECT statement>" or null, "reason": "<short explanation, only if sql is null>"}';
+
+  let sqlResultText, parsedResp;
+  try{
+    sqlResultText = await callClaude(sysPrompt, question);
+    parsedResp = JSON.parse(stripFences(sqlResultText));
+  }catch(e){
+    messages.pop();
+    messages.push({role:'assistant', blocked:true, content:"I couldn't generate a query for that just now. Mind rephrasing the question?", stages:['generate:bad']});
+    renderChat(); saveMessages();
+    return;
+  }
+
+  if(!parsedResp.sql){
+    messages.pop();
+    messages.push({role:'assistant', blocked:true, content: parsedResp.reason || "I can't answer that with the data available.", stages:['generate:ok','answer:na']});
+    renderChat(); saveMessages();
+    return;
+  }
+
+  thinkingMsg.stage='Validating…';
+  renderChat();
+  const validation = validateSQL(parsedResp.sql, state.tables);
+
+  if(!validation.ok){
+    messages.pop();
+    messages.push({role:'assistant', blocked:true, content:"That query was blocked before it ran: "+validation.reason, sql:parsedResp.sql, stages:['generate:ok','validate:bad']});
+    renderChat(); saveMessages();
+    return;
+  }
+
+  thinkingMsg.stage='Running securely…';
+  renderChat();
+
+  const dataMap={};
+  state.tables.forEach(t=>{ dataMap[t.name]=t.rows; });
+  let execResult;
+  try{
+    execResult = runQuery(validation.sql, dataMap);
+  }catch(e){
+    messages.pop();
+    messages.push({role:'assistant', blocked:true, content:"The validated query failed to run: "+e.message, sql:validation.sql, stages:['generate:ok','validate:ok','execute:bad']});
+    renderChat(); saveMessages();
+    return;
+  }
+
+  thinkingMsg.stage='Preparing answer…';
+  renderChat();
+
+  const formatSys='You are a helpful data analyst for a business chatbot. Given a question and a JSON result set, write a short, clear, natural-language answer (1-4 sentences). Use plain numbers and currency-free language unless units are obvious from the data. If the array is empty, say plainly that no matching data was found. Never invent numbers not present in the data.';
+  const formatUser=JSON.stringify({question, result_rows: execResult.rows.slice(0,50), total_matching_rows: execResult.totalCount});
+  let answerText;
+  try{
+    answerText = await callClaude(formatSys, formatUser);
+  }catch(e){
+    answerText = 'Found '+execResult.totalCount+' matching row(s), but the answer could not be summarized right now.';
+  }
+
+  messages.pop();
+  messages.push({
+    role:'assistant',
+    content: answerText.trim(),
+    sql: validation.sql,
+    rows: execResult.rows.slice(0,10),
+    rowCount: execResult.totalCount,
+    stages:['generate:ok','validate:ok','execute:ok']
+  });
+  renderChat();
+  saveMessages();
+}
+
+function pipelineHtml(stages){
+  const labels={ generate:'Query written', validate:'Validator', execute:'Read-only run' };
+  const order=['generate','validate','execute'];
+  let html='<div class="pipeline">';
+  order.forEach((key,i)=>{
+    const found = stages.find(s=>s.startsWith(key+':'));
+    let cls='pending', mark='○';
+    if(found){
+      const status=found.split(':')[1];
+      cls = status==='ok' ? 'ok' : (status==='na' ? 'pending' : 'bad');
+      mark = status==='ok' ? '✓' : (status==='na' ? '–' : '✕');
+    }
+    html += '<span class="pipe-step '+cls+'"><span class="mark">'+mark+'</span>'+labels[key]+'</span>';
+    if(i<order.length-1) html += '<span class="pipe-sep">→</span>';
+  });
+  html+='</div>';
+  return html;
+}
+
+function renderChat(){
+  const inner=document.getElementById('chat-inner');
+  if(messages.length===0 && state.tables.length===0){
+    inner.innerHTML = '<div class="empty-state">'+
+      '<span class="brand-mark"></span>'+
+      '<h2>Add a table to get started</h2>'+
+      '<p>Ledger answers questions by writing a validated, read-only SELECT against tables you define — nothing is ever inserted, updated or deleted, and columns you mark as restricted are never sent to the model or returned in an answer.</p>'+
+      '</div>';
+    return;
+  }
+  if(messages.length===0){
+    inner.innerHTML = '<div class="empty-state">'+
+      '<span class="brand-mark"></span>'+
+      '<h2>Ask something about your data</h2>'+
+      '<p>Try: "How many orders are complete?" or "Which products are out of stock?" — every answer shows the query pipeline it went through.</p>'+
+      '</div>';
+    return;
+  }
+  let html='';
+  messages.forEach(m=>{
+    if(m.role==='user'){
+      html += '<div class="msg user"><div class="bubble">'+escapeHtml(m.content)+'</div></div>';
+      return;
+    }
+    if(m.thinking){
+      html += '<div class="msg assistant"><div class="bubble-wrap"><div class="thinking"><span class="dot-flash"></span>'+escapeHtml(m.stage)+'</div></div></div>';
+      return;
+    }
+    html += '<div class="msg assistant"><div class="bubble-wrap">';
+    html += '<div class="bubble'+(m.blocked?' blocked':'')+'">'+escapeHtml(m.content)+'</div>';
+    if(m.stages) html += pipelineHtml(m.stages);
+    if(m.sql){
+      html += '<details class="sql-detail"><summary>view query</summary><div class="sql-box">'+escapeHtml(m.sql)+'</div>';
+      if(m.rows && m.rows.length){
+        const cols=Object.keys(m.rows[0]);
+        html += '<table class="result-table"><thead><tr>'+cols.map(c=>'<th>'+escapeHtml(c)+'</th>').join('')+'</tr></thead><tbody>';
+        m.rows.forEach(r=>{
+          html += '<tr>'+cols.map(c=>'<td>'+escapeHtml(r[c])+'</td>').join('')+'</tr>';
+        });
+        html += '</tbody></table>';
+        if(m.rowCount>m.rows.length) html += '<div class="form-hint" style="margin-top:6px;">showing '+m.rows.length+' of '+m.rowCount+' matching rows</div>';
+      }
+      html += '</details>';
+    }
+    html += '</div></div>';
+  });
+  inner.innerHTML = html;
+  const scroller=document.getElementById('chat-scroll');
+  scroller.scrollTop = scroller.scrollHeight;
+}
+
+function autosizeInput(){
+  const el=document.getElementById('chat-input');
+  el.style.height='auto';
+  el.style.height=Math.min(el.scrollHeight,140)+'px';
+}
+
+/* =======================================================================
+   Init
+   ======================================================================= */
+function attachGlobalHandlers(){
+  document.getElementById('send-btn').addEventListener('click', handleSend);
+  const input=document.getElementById('chat-input');
+  input.addEventListener('input', autosizeInput);
+  input.addEventListener('keydown', e=>{
+    if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); handleSend(); }
+  });
+  document.getElementById('reset-btn').addEventListener('click', async ()=>{
+    if(!confirm('Reset all tables and chat history? This cannot be undone.')) return;
+    state.tables=[]; messages=[]; openTableId=null;
+    await saveTables(); await saveMessages();
+    renderSidebar(); renderChat();
+  });
+  const menuToggle=document.getElementById('menu-toggle');
+  const sidebar=document.getElementById('sidebar');
+  const backdrop=document.getElementById('sidebar-backdrop');
+  menuToggle.addEventListener('click', ()=>{ sidebar.classList.add('open'); backdrop.classList.add('open'); });
+  backdrop.addEventListener('click', ()=>{ sidebar.classList.remove('open'); backdrop.classList.remove('open'); });
+}
+
+(async function init(){
+  await loadState();
+  renderStorageNote();
+  renderSidebar();
+  renderChat();
+  attachGlobalHandlers();
+})();
+</script>
+</body>
+</html>
